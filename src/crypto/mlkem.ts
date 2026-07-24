@@ -101,26 +101,34 @@ function polyAdd(a: Polynomial, b: Polynomial): Polynomial {
 /**
  * Encode polynomial: pack each coefficient into 12 bits.
  * Since q=3329 < 2^12=4096, every coefficient fits in 12 bits.
- * The value does NOT change — only the storage size shrinks from 16-bit to 12-bit.
- *
- * FIPS 203 ByteEncode_12: packs 256 coefficients × 12 bits = 384 bytes.
- * We store the 12-bit values as plain numbers for display purposes.
+ * Returns packed byte array (384 bytes for 256 coefficients × 12 bits).
  */
-function encodePolynomial(t: Polynomial): { t1: number[], t0: number[] } {
-  // t1 = the 12-bit value itself (same number, smaller container)
-  // t0 = high nibble (bits 11-8) for visualization of the bit split
-  const t1 = t.map(c => c & 0xFFF);           // lower 12 bits — same as c since c < 3329 < 4096
-  const t0 = t.map(c => (c >> 8) & 0xF);      // top 4 bits of the 12-bit value (bits 11-8)
-  return { t1, t0 };
+function encodePolynomial(t: Polynomial): { t1: number[], t0: number[], bytes: Uint8Array } {
+  const t1 = t.map(c => c & 0xFFF);
+  const t0 = t.map(c => (c >> 8) & 0xF);
+  
+  // Pack 256 × 12-bit values into 384 bytes (3 bytes per 2 coefficients)
+  const bytes = new Uint8Array(384);
+  for (let i = 0; i < 256; i += 2) {
+    const c0 = t[i] & 0xFFF;
+    const c1 = t[i + 1] & 0xFFF;
+    const byteIdx = (i / 2) * 3;
+    bytes[byteIdx] = c0 & 0xFF;
+    bytes[byteIdx + 1] = ((c0 >> 8) & 0x0F) | ((c1 & 0x0F) << 4);
+    bytes[byteIdx + 2] = (c1 >> 4) & 0xFF;
+  }
+  
+  return { t1, t0, bytes };
 }
 
-/**
- * Main key generation function
- */
 export async function generateKeyPair(): Promise<KeyGenResult> {
   const totalStart = performance.now();
 
-  // Generate matrix A
+  // Generate ρ (rho) — 32-byte random seed used to deterministically generate matrix A
+  const rho = new Uint8Array(32);
+  crypto.getRandomValues(rho);
+
+  // Generate matrix A (in a real implementation A is derived from ρ via SHAKE-128)
   const matrixA = generateMatrixA();
 
   // Generate secret vector using CBD
@@ -137,7 +145,7 @@ export async function generateKeyPair(): Promise<KeyGenResult> {
   crypto.getRandomValues(eBytes1);
   const e = [cbd(eBytes0), cbd(eBytes1)];
 
-  // Matrix-vector multiplication AS — also captures NTT intermediates
+  // Matrix-vector multiplication AS
   const multStart = performance.now();
   const { result: asIntermediate, nttA, nttS, nttProduct } = matrixVectorMul(matrixA, s);
   const matrixMultTime = performance.now() - multStart;
@@ -147,14 +155,21 @@ export async function generateKeyPair(): Promise<KeyGenResult> {
   const rawT = asIntermediate.map((poly, i) => polyAdd(poly, e[i]));
   const errorAddTime = performance.now() - errStart;
 
-  // Encode t into t1 and t0
+  // Encode t: 256 coefficients × 12 bits = 384 bytes per polynomial
   const encStart = performance.now();
   const encoded = rawT.map(encodePolynomial);
   const encodingTime = performance.now() - encStart;
 
+  // Assemble public key: ρ (32B) || encode12(t[0]) (384B) || encode12(t[1]) (384B) = 800 bytes
+  const publicKey = new Uint8Array(800);
+  publicKey.set(rho, 0);               // bytes 0–31:   ρ
+  publicKey.set(encoded[0].bytes, 32); // bytes 32–415: encode12(t[0])
+  publicKey.set(encoded[1].bytes, 416);// bytes 416–799: encode12(t[1])
+
   const totalTime = performance.now() - totalStart;
 
   return {
+    rho,
     matrixA,
     nttA,
     secretVector: { s0: s[0], s1: s[1] },
@@ -165,6 +180,7 @@ export async function generateKeyPair(): Promise<KeyGenResult> {
     rawT,
     encodedT1: encoded.map(enc => enc.t1),
     encodedT0: encoded.map(enc => enc.t0),
+    publicKey,
     timing: {
       nttTime: matrixMultTime * 0.7,
       matrixMultTime,

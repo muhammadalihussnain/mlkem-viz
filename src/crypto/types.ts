@@ -27,16 +27,18 @@ export interface EncodedPolynomial {
 }
 
 export interface KeyGenResult {
-  matrixA: Matrix;           // A — original polynomials
-  nttA: Matrix;              // NTT(A) — forward transform of each A[i][j]
+  rho: Uint8Array;           // ρ (rho) — 32-byte seed used to generate matrix A
+  matrixA: Matrix;           // A — generated from ρ
+  nttA: Matrix;              // NTT(A)
   secretVector: SecretVector; // s
-  nttS: Polynomial[];        // NTT(s) — forward transform of s[0] and s[1]
+  nttS: Polynomial[];        // NTT(s)
   errorVector: ErrorVector;  // e
-  asIntermediate: Polynomial[]; // INTT(NTT(A)·NTT(s)) = AS
-  nttProduct: Polynomial[];  // NTT(A)·NTT(s) pointwise (before INTT), row 0 only for display
-  rawT: Polynomial[];        // AS + e
-  encodedT1: number[][];
-  encodedT0: number[][];
+  asIntermediate: Polynomial[]; // AS
+  nttProduct: Polynomial[];  // NTT(A)·NTT(s) pointwise
+  rawT: Polynomial[];        // t = AS + e
+  encodedT1: number[][];     // encode12(t) — same values as rawT, 12-bit storage
+  encodedT0: number[][];     // (unused, kept for compatibility)
+  publicKey: Uint8Array;     // ρ || encode12(t[0]) || encode12(t[1]) = 32 + 384 + 384 = 800 bytes
   timing: {
     nttTime: number;
     matrixMultTime: number;

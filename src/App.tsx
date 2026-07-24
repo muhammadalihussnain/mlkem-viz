@@ -3,6 +3,7 @@ import { useKeyGenStore } from './store/keygenStore';
 import { ControlPanel } from './components/ControlPanel';
 import { StatsDashboard } from './components/StatsDashboard';
 import { CoefficientTable } from './components/CoefficientTable';
+import { PublicKeyView } from './components/PublicKeyView';
 import { exportToExcel } from './utils/export';
 
 function App() {
@@ -55,6 +56,10 @@ function App() {
         {result && (
           <>
             <StatsDashboard />
+            <div>
+              <h2 className="text-xl font-semibold mb-3">Public Key Assembly</h2>
+              <PublicKeyView />
+            </div>
             <div>
               <h2 className="text-xl font-semibold mb-3">Coefficient Pipeline View</h2>
               <CoefficientTable />

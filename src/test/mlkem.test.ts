@@ -3,8 +3,9 @@ import { generateKeyPair } from '../crypto/mlkem';
 import { Q, N } from '../crypto/types';
 
 describe('generateKeyPair', () => {
-  it('returns a result with all required fields', async () => {
+  it('returns a result with all required fields including publicKey', async () => {
     const result = await generateKeyPair();
+    expect(result).toHaveProperty('rho');
     expect(result).toHaveProperty('matrixA');
     expect(result).toHaveProperty('nttA');
     expect(result).toHaveProperty('secretVector');
@@ -15,7 +16,20 @@ describe('generateKeyPair', () => {
     expect(result).toHaveProperty('rawT');
     expect(result).toHaveProperty('encodedT1');
     expect(result).toHaveProperty('encodedT0');
+    expect(result).toHaveProperty('publicKey');
     expect(result).toHaveProperty('timing');
+  });
+
+  it('rho is 32 bytes', async () => {
+    const result = await generateKeyPair();
+    expect(result.rho).toBeInstanceOf(Uint8Array);
+    expect(result.rho).toHaveLength(32);
+  });
+
+  it('publicKey is 800 bytes (32 rho + 384 enc0 + 384 enc1)', async () => {
+    const result = await generateKeyPair();
+    expect(result.publicKey).toBeInstanceOf(Uint8Array);
+    expect(result.publicKey).toHaveLength(800);
   });
 
   it('matrix A is 2x2 with polynomials of length N', async () => {

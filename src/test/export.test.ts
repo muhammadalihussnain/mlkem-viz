@@ -16,6 +16,7 @@ vi.mock('xlsx', () => ({
 function mockResult(): KeyGenResult {
   const poly = () => Array.from({ length: N }, (_, i) => i % 3329);
   return {
+    rho: new Uint8Array(32),
     matrixA: [[poly(), poly()], [poly(), poly()]],
     nttA: [[poly(), poly()], [poly(), poly()]],
     secretVector: { s0: poly(), s1: poly() },
@@ -26,6 +27,7 @@ function mockResult(): KeyGenResult {
     rawT: [poly(), poly()],
     encodedT1: [new Array(N).fill(1), new Array(N).fill(0)],
     encodedT0: [poly(), poly()],
+    publicKey: new Uint8Array(800),
     timing: { nttTime: 1, matrixMultTime: 2, errorAddTime: 0.5, encodingTime: 0.3, totalTime: 5 },
   };
 }
