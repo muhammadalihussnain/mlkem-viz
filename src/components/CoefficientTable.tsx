@@ -74,10 +74,10 @@ function getColor12(v: number) {
 
 function Cell16({ val }: { val: number }) {
   return (
-    <div style={{ backgroundColor: getColor16(val) }} className="rounded px-1 py-0.5 font-mono leading-tight h-full">
-      <div className="text-white font-semibold text-xs">{val}</div>
-      <div className="text-gray-300 text-[9px] tracking-tight">{val.toString(2).padStart(16, '0')}</div>
-      <div className="text-gray-500 text-[8px]">2 bytes</div>
+    <div style={{ backgroundColor: getColor16(val) }} className="rounded px-1.5 py-1 font-mono leading-snug h-full">
+      <div className="text-white font-semibold text-sm">{val}</div>
+      <div className="text-gray-300 text-[10px] tracking-tight">{val.toString(2).padStart(16, '0')}</div>
+      <div className="text-gray-500 text-[9px]">2 bytes</div>
     </div>
   );
 }
@@ -86,28 +86,28 @@ function CellSmall({ val }: { val: number }) {
   const signed = val > 1664 ? val - 3329 : val;
   const bg = signed < 0 ? '#3a1010' : signed === 0 ? '#111128' : '#0e3010';
   return (
-    <div style={{ backgroundColor: bg }} className="rounded px-1 py-0.5 font-mono leading-tight h-full">
-      <div className="text-white font-semibold text-xs">
-        {val} <span className="text-yellow-300 text-[9px]">({signed >= 0 ? '+' : ''}{signed})</span>
+    <div style={{ backgroundColor: bg }} className="rounded px-1.5 py-1 font-mono leading-snug h-full">
+      <div className="text-white font-semibold text-sm">
+        {val} <span className="text-yellow-300 text-[10px]">({signed >= 0 ? '+' : ''}{signed})</span>
       </div>
-      <div className="text-gray-300 text-[9px] tracking-tight">{val.toString(2).padStart(16, '0')}</div>
-      <div className="text-gray-500 text-[8px]">2 bytes (CBD)</div>
+      <div className="text-gray-300 text-[10px] tracking-tight">{val.toString(2).padStart(16, '0')}</div>
+      <div className="text-gray-500 text-[9px]">2 bytes (CBD)</div>
     </div>
   );
 }
 
 function Cell12({ val }: { val: number }) {
   return (
-    <div style={{ backgroundColor: getColor12(val) }} className="rounded px-1 py-0.5 font-mono leading-tight h-full">
-      <div className="text-white font-semibold text-xs">{val}</div>
-      <div className="text-gray-300 text-[9px] tracking-tight">{val.toString(2).padStart(12, '0')}</div>
-      <div className="text-gray-500 text-[8px]">1.5 bytes</div>
+    <div style={{ backgroundColor: getColor12(val) }} className="rounded px-1.5 py-1 font-mono leading-snug h-full">
+      <div className="text-white font-semibold text-sm">{val}</div>
+      <div className="text-gray-300 text-[10px] tracking-tight">{val.toString(2).padStart(12, '0')}</div>
+      <div className="text-gray-500 text-[9px]">1.5 bytes</div>
     </div>
   );
 }
 
 function renderCell(col: ColDef, row: CoefficientRow) {
-  if (col.id === 'index') return <div className="font-mono font-bold text-gray-400 text-xs">{row.index}</div>;
+  if (col.id === 'index') return <div className="font-mono font-bold text-gray-400 text-sm py-1">{row.index}</div>;
   if (col.group === 'secret') return <CellSmall val={row[col.id] as number} />;
   if (col.group === 'enc')    return <Cell12    val={row[col.id] as number} />;
   return <Cell16 val={row[col.id] as number} />;
@@ -150,7 +150,7 @@ export function CoefficientTable() {
   const virtualizer = useVirtualizer({
     count: filteredRows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 72,
+    estimateSize: () => 85, // increased from 72
     overscan: 8,
   });
 
@@ -165,7 +165,7 @@ export function CoefficientTable() {
   return (
     <div>
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-3 text-[10px] mb-2 px-1">
+      <div className="flex flex-wrap items-center gap-3 text-xs mb-2 px-1">
         {(['secret','matrix','as','rawt','enc'] as ColDef['group'][]).map((g) => (
           <span key={g} className={`flex items-center gap-1 ${GROUP_STYLE[g].text}`}>
             <span className={`inline-block w-3 h-3 rounded ${GROUP_STYLE[g].bg} border ${GROUP_STYLE[g].border}`} />
@@ -187,7 +187,7 @@ export function CoefficientTable() {
               return (
                 <div
                   key={g.label}
-                  className={`flex-shrink-0 px-2 py-1 text-center text-[10px] font-bold border-r ${st.bg} ${st.text} ${st.border}`}
+                  className={`flex-shrink-0 px-2 py-1.5 text-center text-xs font-bold border-r ${st.bg} ${st.text} ${st.border}`}
                   style={{ width: w, minWidth: w }}
                 >
                   {g.label}
@@ -197,20 +197,20 @@ export function CoefficientTable() {
           </div>
 
           {/* ── Column header row ── */}
-          <div className="flex sticky top-[28px] z-20 border-b-2 border-gray-600">
+          <div className="flex sticky top-[32px] z-20 border-b-2 border-gray-600">
             {COLS.map((col) => {
               const st = GROUP_STYLE[col.group];
               return (
                 <div
                   key={col.id}
-                  className={`flex-shrink-0 px-2 py-1.5 border-r ${st.bg} ${st.border}`}
+                  className={`flex-shrink-0 px-2 py-2 border-r ${st.bg} ${st.border}`}
                   style={{ width: col.width, minWidth: col.width }}
                 >
-                  <div className={`font-semibold text-[10px] whitespace-nowrap ${st.text}`}>
+                  <div className={`font-semibold text-xs whitespace-nowrap ${st.text}`}>
                     {col.header}
                   </div>
                   {col.subHeader && (
-                    <div className="text-gray-500 text-[8px] whitespace-nowrap mt-0.5">
+                    <div className="text-gray-500 text-[9px] whitespace-nowrap mt-0.5">
                       {col.subHeader}
                     </div>
                   )}
@@ -253,22 +253,22 @@ export function CoefficientTable() {
               return (
                 <div
                   key={col.id}
-                  className={`flex-shrink-0 px-2 py-1 border-r border-gray-800 text-[9px] font-mono ${st.bg}`}
+                  className={`flex-shrink-0 px-2 py-1.5 border-r border-gray-800 text-xs font-mono ${st.bg}`}
                   style={{ width: col.width, minWidth: col.width }}
                 >
                   {col.id === 'index' ? (
-                    <div className="text-blue-400 font-bold">TOTAL</div>
+                    <div className="text-blue-400 font-bold text-xs">TOTAL</div>
                   ) : (
                     <>
                       {totalB > 0 && (
-                        <div className={`font-bold ${isEnc ? 'text-cyan-400' : 'text-blue-300'}`}>
+                        <div className={`font-bold text-xs ${isEnc ? 'text-cyan-400' : 'text-blue-300'}`}>
                           {Number.isInteger(totalB) ? totalB : (totalB).toFixed(0)}B
                         </div>
                       )}
-                      <div className="text-gray-600 text-[8px]">
-                        {bpc > 0 ? `${bpc}B×256` : ''}
+                      <div className="text-gray-500 text-[9px]">
+                        {bpc > 0 ? `${bpc}B × 256` : ''}
                       </div>
-                      <div className="text-gray-500 text-[8px]">
+                      <div className="text-gray-500 text-[9px]">
                         Σ={colSums[col.id]?.toLocaleString() ?? '—'}
                       </div>
                     </>
@@ -282,7 +282,7 @@ export function CoefficientTable() {
       </div>
 
       {/* Summary bar */}
-      <div className="mt-2 flex flex-wrap gap-4 text-[10px] font-mono px-1">
+      <div className="mt-2 flex flex-wrap gap-4 text-xs font-mono px-1">
         <span className="text-gray-400">s: 2×512B=<span className="text-white">1024B</span></span>
         <span className="text-gray-400">A: 4×512B=<span className="text-white">2048B</span></span>
         <span className="text-gray-400">AS: 2×512B=<span className="text-white">1024B</span></span>
@@ -290,6 +290,34 @@ export function CoefficientTable() {
         <span className="text-cyan-300">t1[0]+t0[0]+t1[1]+t0[1]: 4×384B=<b>768B</b> (12-bit compressed)</span>
         <span className="text-green-400">saving: 1024B→768B = 25%</span>
       </div>
+
+      {/* Encoding explanation box */}
+      {filteredRows.length > 0 && (
+        <div className="mt-3 p-3 bg-gray-800 border border-gray-700 rounded text-xs font-mono">
+          <div className="text-yellow-300 font-bold mb-2">📐 Encoding Formula Verification (using row 0 as example):</div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-gray-400 mb-1">For t[0][0] = {filteredRows[0].t_poly0}:</div>
+              <div className="text-sm space-y-0.5 text-gray-300">
+                <div>• t1 = (t + 2¹⁰) ≫ 11 = ({filteredRows[0].t_poly0} + 1024) ≫ 11 = {filteredRows[0].t_poly0 + 1024} ≫ 11 = <span className="text-cyan-400 font-bold">{filteredRows[0].t1_p0}</span></div>
+                <div>• t0 = t − t1·2¹¹ + 2¹⁰ = {filteredRows[0].t_poly0} − {filteredRows[0].t1_p0}×2048 + 1024 = <span className="text-cyan-400 font-bold">{filteredRows[0].t0_p0}</span></div>
+                <div className="text-green-400 mt-1">✓ Reconstruct: {filteredRows[0].t1_p0}×2048 − 1024 + {filteredRows[0].t0_p0} = {filteredRows[0].t1_p0 * 2048 - 1024 + filteredRows[0].t0_p0}</div>
+              </div>
+            </div>
+            <div>
+              <div className="text-gray-400 mb-1">For t[1][0] = {filteredRows[0].t_poly1}:</div>
+              <div className="text-sm space-y-0.5 text-gray-300">
+                <div>• t1 = ({filteredRows[0].t_poly1} + 1024) ≫ 11 = {filteredRows[0].t_poly1 + 1024} ≫ 11 = <span className="text-cyan-400 font-bold">{filteredRows[0].t1_p1}</span></div>
+                <div>• t0 = {filteredRows[0].t_poly1} − {filteredRows[0].t1_p1}×2048 + 1024 = <span className="text-cyan-400 font-bold">{filteredRows[0].t0_p1}</span></div>
+                <div className="text-green-400 mt-1">✓ Reconstruct: {filteredRows[0].t1_p1}×2048 − 1024 + {filteredRows[0].t0_p1} = {filteredRows[0].t1_p1 * 2048 - 1024 + filteredRows[0].t0_p1}</div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-2 text-gray-500 text-[10px]">
+            Each 16-bit coefficient t is split into: t1 (captures high 11 bits after offset) and t0 (captures remainder). Both stored as 12-bit values.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
