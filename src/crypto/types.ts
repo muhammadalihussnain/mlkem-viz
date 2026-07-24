@@ -53,11 +53,9 @@ export interface CoefficientRow {
   a11: number;       // A[1][1][i]  16-bit
   as0: number;       // (AS)[0][i]  16-bit  intermediate
   as1: number;       // (AS)[1][i]  16-bit  intermediate
-  t_poly0: number;   // t[0][i] = (AS+e)[0][i]  16-bit  raw public key poly 0
-  t_poly1: number;   // t[1][i] = (AS+e)[1][i]  16-bit  raw public key poly 1
-  // Compression: each 16-bit t[k][i] split into two 12-bit halves
-  t1_p0: number;     // high part of t[0][i]: (t+2^10)>>11  →  12-bit
-  t0_p0: number;     // low  part of t[0][i]: t - t1*2^11 + 2^10  →  12-bit
-  t1_p1: number;     // high part of t[1][i]  →  12-bit
-  t0_p1: number;     // low  part of t[1][i]  →  12-bit
+  t_poly0: number;   // t[0][i] = (AS+e)[0][i]  16-bit  raw (same number)
+  t_poly1: number;   // t[1][i] = (AS+e)[1][i]  16-bit  raw (same number)
+  // 12-bit packed: same value, just fits in 12 bits because q=3329 < 2^12
+  enc0: number;      // t[0][i] encoded as 12-bit  (value unchanged: enc0 === t_poly0)
+  enc1: number;      // t[1][i] encoded as 12-bit  (value unchanged: enc1 === t_poly1)
 }

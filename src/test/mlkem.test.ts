@@ -83,38 +83,16 @@ describe('generateKeyPair', () => {
     });
   });
 
-  it('encodedT1 values are valid (0, 1, or 2 for ML-KEM-512)', async () => {
+  it('encodedT1 values equal rawT (same number, 12-bit storage)', async () => {
     const result = await generateKeyPair();
-    result.encodedT1.forEach((poly) =>
-      poly.forEach((c) => {
+    // enc[k][i] === rawT[k][i] because q=3329 < 4096=2^12 — value unchanged
+    result.encodedT1.forEach((poly, k) =>
+      poly.forEach((c, i) => {
+        expect(c).toBe(result.rawT[k][i] & 0xFFF);
         expect(c).toBeGreaterThanOrEqual(0);
-        expect(c).toBeLessThanOrEqual(2);
+        expect(c).toBeLessThan(4096);
       })
     );
-  });
-
-  it('encodedT0 values are in [0, q-1] range', async () => {
-    const result = await generateKeyPair();
-    result.encodedT0.forEach((poly) =>
-      poly.forEach((c) => {
-        // t0 is centered: t - t1*2048 + 1024, can be large
-        expect(typeof c).toBe('number');
-        expect(Number.isFinite(c)).toBe(true);
-      })
-    );
-  });
-
-  it('encoding is self-consistent: t1*2048 - 1024 + t0 ≈ rawT', async () => {
-    const result = await generateKeyPair();
-    for (let poly = 0; poly < 2; poly++) {
-      for (let i = 0; i < N; i++) {
-        const t = result.rawT[poly][i];
-        const t1 = result.encodedT1[poly][i];
-        const t0 = result.encodedT0[poly][i];
-        const reconstructed = t1 * 2048 - 1024 + t0;
-        expect(reconstructed).toBe(t);
-      }
-    }
   });
 
   it('timing fields are positive numbers', async () => {

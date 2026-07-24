@@ -58,12 +58,12 @@ describe('useKeyGenStore', () => {
     expect(rows[0].s1).toBe(result.secretVector.s1[0]);
   });
 
-  it('rows contain encoded poly1 values', () => {
+  it('rows contain encoded values (enc0, enc1) matching encodedT1', () => {
     const result = mockResult();
     useKeyGenStore.getState().setResult(result);
     const { rows } = useKeyGenStore.getState();
-    expect(rows[5].t1_p1).toBe(result.encodedT1[1][5]);
-    expect(rows[5].t0_p1).toBe(result.encodedT0[1][5]);
+    expect(rows[5].enc0).toBe(result.encodedT1[0][5]);
+    expect(rows[5].enc1).toBe(result.encodedT1[1][5]);
   });
 
   it('setGenerating sets isGenerating', () => {

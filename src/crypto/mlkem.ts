@@ -86,13 +86,18 @@ function polyAdd(a: Polynomial, b: Polynomial): Polynomial {
 }
 
 /**
- * Encode polynomial: compute t1 and t0 from t
- * t1[i] = (t[i] + 2^10) >> 11
- * t0[i] = t[i] - t1[i] * 2^11 + 2^10
+ * Encode polynomial: pack each coefficient into 12 bits.
+ * Since q=3329 < 2^12=4096, every coefficient fits in 12 bits.
+ * The value does NOT change — only the storage size shrinks from 16-bit to 12-bit.
+ *
+ * FIPS 203 ByteEncode_12: packs 256 coefficients × 12 bits = 384 bytes.
+ * We store the 12-bit values as plain numbers for display purposes.
  */
 function encodePolynomial(t: Polynomial): { t1: number[], t0: number[] } {
-  const t1 = t.map(c => (c + (1 << 10)) >> 11);
-  const t0 = t.map((c, i) => c - (t1[i] << 11) + (1 << 10));
+  // t1 = the 12-bit value itself (same number, smaller container)
+  // t0 = high nibble (bits 11-8) for visualization of the bit split
+  const t1 = t.map(c => c & 0xFFF);           // lower 12 bits — same as c since c < 3329 < 4096
+  const t0 = t.map(c => (c >> 8) & 0xF);      // top 4 bits of the 12-bit value (bits 11-8)
   return { t1, t0 };
 }
 

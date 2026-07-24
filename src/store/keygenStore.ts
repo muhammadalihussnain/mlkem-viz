@@ -32,10 +32,9 @@ function buildRows(result: KeyGenResult): CoefficientRow[] {
     as1: result.asIntermediate[1][i],
     t_poly0: result.rawT[0][i],
     t_poly1: result.rawT[1][i],
-    t1_p0: result.encodedT1[0][i],
-    t0_p0: result.encodedT0[0][i],
-    t1_p1: result.encodedT1[1][i],
-    t0_p1: result.encodedT0[1][i],
+    // enc = same value, now stored as 12-bit (value unchanged, size shrinks)
+    enc0: result.encodedT1[0][i],
+    enc1: result.encodedT1[1][i],
   }));
 }
 
