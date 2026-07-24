@@ -1,19 +1,25 @@
 /**
- * State management for key generation results
+ * State management for key generation and encapsulation results
  */
 
 import { create } from 'zustand';
-import type { KeyGenResult, CoefficientRow } from '../crypto/types';
+import type { KeyGenResult, CoefficientRow, EncapResult, EncapRow } from '../crypto/types';
+import { buildEncapRows } from '../crypto/encapsulate';
 
 interface KeyGenStore {
   result: KeyGenResult | null;
   rows: CoefficientRow[];
+  encapResult: EncapResult | null;
+  encapRows: EncapRow[];
   isGenerating: boolean;
+  isEncapsulating: boolean;
   error: string | null;
   filterRange: [number, number];
   searchIndex: string;
   setResult: (result: KeyGenResult) => void;
+  setEncapResult: (enc: EncapResult) => void;
   setGenerating: (v: boolean) => void;
+  setEncapsulating: (v: boolean) => void;
   setError: (e: string | null) => void;
   setFilterRange: (r: [number, number]) => void;
   setSearchIndex: (v: string) => void;
@@ -48,13 +54,18 @@ function buildRows(result: KeyGenResult): CoefficientRow[] {
 export const useKeyGenStore = create<KeyGenStore>((set) => ({
   result: null,
   rows: [],
+  encapResult: null,
+  encapRows: [],
   isGenerating: false,
+  isEncapsulating: false,
   error: null,
   filterRange: [0, 3328],
   searchIndex: '',
   setResult: (result) => set({ result, rows: buildRows(result), error: null }),
+  setEncapResult: (enc) => set({ encapResult: enc, encapRows: buildEncapRows(enc) }),
   setGenerating: (v) => set({ isGenerating: v }),
-  setError: (e) => set({ error: e, isGenerating: false }),
+  setEncapsulating: (v) => set({ isEncapsulating: v }),
+  setError: (e) => set({ error: e, isGenerating: false, isEncapsulating: false }),
   setFilterRange: (r) => set({ filterRange: r }),
   setSearchIndex: (v) => set({ searchIndex: v }),
 }));

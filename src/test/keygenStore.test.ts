@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useKeyGenStore } from '../store/keygenStore';
+import { generateKeyPair } from '../crypto/mlkem';
+import { encapsulate, buildEncapRows } from '../crypto/encapsulate';
 import type { KeyGenResult } from '../crypto/types';
 import { N } from '../crypto/types';
 
@@ -25,8 +27,9 @@ function mockResult(): KeyGenResult {
 describe('useKeyGenStore', () => {
   beforeEach(() => {
     useKeyGenStore.setState({
-      result: null, rows: [], isGenerating: false, error: null,
-      filterRange: [0, 3328], searchIndex: '',
+      result: null, rows: [], encapResult: null, encapRows: [],
+      isGenerating: false, isEncapsulating: false,
+      error: null, filterRange: [0, 3328], searchIndex: '',
     });
   });
 
@@ -34,7 +37,10 @@ describe('useKeyGenStore', () => {
     const s = useKeyGenStore.getState();
     expect(s.result).toBeNull();
     expect(s.rows).toHaveLength(0);
+    expect(s.encapResult).toBeNull();
+    expect(s.encapRows).toHaveLength(0);
     expect(s.isGenerating).toBe(false);
+    expect(s.isEncapsulating).toBe(false);
     expect(s.error).toBeNull();
     expect(s.filterRange).toEqual([0, 3328]);
   });
@@ -80,6 +86,16 @@ describe('useKeyGenStore', () => {
     expect(rows[5].enc1).toBe(result.encodedT1[1][5]);
   });
 
+  it('setEncapResult builds 256 encapRows', async () => {
+    const kg = await generateKeyPair();
+    const enc = await encapsulate(kg);
+    useKeyGenStore.getState().setEncapResult(enc);
+    const s = useKeyGenStore.getState();
+    expect(s.encapResult).toBe(enc);
+    expect(s.encapRows).toHaveLength(256);
+    expect(s.encapRows[0]).toMatchObject(buildEncapRows(enc)[0]);
+  });
+
   it('setGenerating sets isGenerating', () => {
     useKeyGenStore.getState().setGenerating(true);
     expect(useKeyGenStore.getState().isGenerating).toBe(true);
@@ -87,12 +103,21 @@ describe('useKeyGenStore', () => {
     expect(useKeyGenStore.getState().isGenerating).toBe(false);
   });
 
-  it('setError sets error and stops generating', () => {
+  it('setEncapsulating sets isEncapsulating', () => {
+    useKeyGenStore.getState().setEncapsulating(true);
+    expect(useKeyGenStore.getState().isEncapsulating).toBe(true);
+    useKeyGenStore.getState().setEncapsulating(false);
+    expect(useKeyGenStore.getState().isEncapsulating).toBe(false);
+  });
+
+  it('setError sets error and stops generating and encapsulating', () => {
     useKeyGenStore.getState().setGenerating(true);
+    useKeyGenStore.getState().setEncapsulating(true);
     useKeyGenStore.getState().setError('something failed');
     const s = useKeyGenStore.getState();
     expect(s.error).toBe('something failed');
     expect(s.isGenerating).toBe(false);
+    expect(s.isEncapsulating).toBe(false);
   });
 
   it('setFilterRange updates filterRange', () => {
