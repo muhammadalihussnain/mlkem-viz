@@ -27,13 +27,16 @@ export interface EncodedPolynomial {
 }
 
 export interface KeyGenResult {
-  matrixA: Matrix; // A00, A01, A10, A11
+  matrixA: Matrix;           // A — original polynomials
+  nttA: Matrix;              // NTT(A) — forward transform of each A[i][j]
   secretVector: SecretVector; // s
-  errorVector: ErrorVector; // e
-  asIntermediate: Polynomial[]; // AS result (2 polynomials)
-  rawT: Polynomial[]; // AS + e (raw t vector)
-  encodedT1: number[][]; // Encoded high bits
-  encodedT0: number[][]; // Encoded low bits
+  nttS: Polynomial[];        // NTT(s) — forward transform of s[0] and s[1]
+  errorVector: ErrorVector;  // e
+  asIntermediate: Polynomial[]; // INTT(NTT(A)·NTT(s)) = AS
+  nttProduct: Polynomial[];  // NTT(A)·NTT(s) pointwise (before INTT), row 0 only for display
+  rawT: Polynomial[];        // AS + e
+  encodedT1: number[][];
+  encodedT0: number[][];
   timing: {
     nttTime: number;
     matrixMultTime: number;
@@ -45,17 +48,32 @@ export interface KeyGenResult {
 
 export interface CoefficientRow {
   index: number;
-  s0: number;        // secret s, poly 0, coeff i  (CBD small value)
-  s1: number;        // secret s, poly 1, coeff i  (CBD small value)
-  a00: number;       // A[0][0][i]  16-bit
-  a01: number;       // A[0][1][i]  16-bit
-  a10: number;       // A[1][0][i]  16-bit
-  a11: number;       // A[1][1][i]  16-bit
-  as0: number;       // (AS)[0][i]  16-bit  intermediate
-  as1: number;       // (AS)[1][i]  16-bit  intermediate
-  t_poly0: number;   // t[0][i] = (AS+e)[0][i]  16-bit  raw (same number)
-  t_poly1: number;   // t[1][i] = (AS+e)[1][i]  16-bit  raw (same number)
-  // 12-bit packed: same value, just fits in 12 bits because q=3329 < 2^12
-  enc0: number;      // t[0][i] encoded as 12-bit  (value unchanged: enc0 === t_poly0)
-  enc1: number;      // t[1][i] encoded as 12-bit  (value unchanged: enc1 === t_poly1)
+  // Secret s (raw)
+  s0: number;
+  s1: number;
+  // Matrix A (raw)
+  a00: number;
+  a01: number;
+  a10: number;
+  a11: number;
+  // NTT(A) — forward transform of each A polynomial
+  nttA00: number;
+  nttA01: number;
+  nttA10: number;
+  nttA11: number;
+  // NTT(s) — forward transform of s
+  nttS0: number;
+  nttS1: number;
+  // NTT(A)·NTT(s) pointwise product (row 0 of matrix result: A[0][0]*s[0] + A[0][1]*s[1])
+  nttProd0: number;
+  nttProd1: number;
+  // INTT(NTT(A)·NTT(s)) = AS (polynomial multiplication result)
+  as0: number;
+  as1: number;
+  // t = AS + e (raw public key, 16-bit)
+  t_poly0: number;
+  t_poly1: number;
+  // Encoded t (12-bit, same value, smaller storage)
+  enc0: number;
+  enc1: number;
 }

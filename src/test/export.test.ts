@@ -17,9 +17,12 @@ function mockResult(): KeyGenResult {
   const poly = () => Array.from({ length: N }, (_, i) => i % 3329);
   return {
     matrixA: [[poly(), poly()], [poly(), poly()]],
+    nttA: [[poly(), poly()], [poly(), poly()]],
     secretVector: { s0: poly(), s1: poly() },
+    nttS: [poly(), poly()],
     errorVector: { e0: poly(), e1: poly() },
     asIntermediate: [poly(), poly()],
+    nttProduct: [poly(), poly()],
     rawT: [poly(), poly()],
     encodedT1: [new Array(N).fill(1), new Array(N).fill(0)],
     encodedT0: [poly(), poly()],

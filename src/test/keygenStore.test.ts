@@ -3,14 +3,16 @@ import { useKeyGenStore } from '../store/keygenStore';
 import type { KeyGenResult } from '../crypto/types';
 import { N } from '../crypto/types';
 
-// Minimal mock KeyGenResult
 function mockResult(): KeyGenResult {
   const poly = () => Array.from({ length: N }, (_, i) => i % 3329);
   return {
     matrixA: [[poly(), poly()], [poly(), poly()]],
+    nttA: [[poly(), poly()], [poly(), poly()]],
     secretVector: { s0: poly(), s1: poly() },
+    nttS: [poly(), poly()],
     errorVector: { e0: poly(), e1: poly() },
     asIntermediate: [poly(), poly()],
+    nttProduct: [poly(), poly()],
     rawT: [poly(), poly()],
     encodedT1: [new Array(N).fill(1), new Array(N).fill(0)],
     encodedT0: [poly(), poly()],
@@ -56,6 +58,16 @@ describe('useKeyGenStore', () => {
     const { rows } = useKeyGenStore.getState();
     expect(rows[0].s0).toBe(result.secretVector.s0[0]);
     expect(rows[0].s1).toBe(result.secretVector.s1[0]);
+  });
+
+  it('rows contain NTT intermediate values', () => {
+    const result = mockResult();
+    useKeyGenStore.getState().setResult(result);
+    const { rows } = useKeyGenStore.getState();
+    expect(rows[3].nttA00).toBe(result.nttA[0][0][3]);
+    expect(rows[3].nttS0).toBe(result.nttS[0][3]);
+    expect(rows[3].nttProd0).toBe(result.nttProduct[0][3]);
+    expect(rows[3].as0).toBe(result.asIntermediate[0][3]);
   });
 
   it('rows contain encoded values (enc0, enc1) matching encodedT1', () => {

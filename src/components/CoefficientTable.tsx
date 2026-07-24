@@ -20,28 +20,47 @@ interface ColDef {
   header: string;
   subHeader: string;
   width: number;
-  group: 'secret' | 'matrix' | 'as' | 'rawt' | 'enc';
+  group: 'secret' | 'matrix' | 'ntta' | 'ntts' | 'prod' | 'as' | 'rawt' | 'enc';
 }
 
 const COLS: ColDef[] = [
-  { id: 'index',    header: 'i',              subHeader: '',                      width: 52,  group: 'matrix' },
-  { id: 's0',       header: 's[0][i]',         subHeader: 'CBD · 16-bit storage',  width: 180, group: 'secret' },
-  { id: 's1',       header: 's[1][i]',         subHeader: 'CBD · 16-bit storage',  width: 180, group: 'secret' },
-  { id: 'a00',      header: 'A[0][0][i]',      subHeader: '16-bit storage',        width: 180, group: 'matrix' },
-  { id: 'a01',      header: 'A[0][1][i]',      subHeader: '16-bit storage',        width: 180, group: 'matrix' },
-  { id: 'a10',      header: 'A[1][0][i]',      subHeader: '16-bit storage',        width: 180, group: 'matrix' },
-  { id: 'a11',      header: 'A[1][1][i]',      subHeader: '16-bit storage',        width: 180, group: 'matrix' },
-  { id: 'as0',      header: '(AS)[0][i]',      subHeader: '16-bit storage',        width: 180, group: 'as'     },
-  { id: 'as1',      header: '(AS)[1][i]',      subHeader: '16-bit storage',        width: 180, group: 'as'     },
-  { id: 't_poly0',  header: 't[0][i] = (AS+e)[0]', subHeader: '16-bit · 512B total',  width: 190, group: 'rawt'   },
-  { id: 't_poly1',  header: 't[1][i] = (AS+e)[1]', subHeader: '16-bit · 512B total',  width: 190, group: 'rawt'   },
-  { id: 'enc0',     header: 'enc[0][i]',       subHeader: '12-bit · same value · 384B total', width: 210, group: 'enc' },
-  { id: 'enc1',     header: 'enc[1][i]',       subHeader: '12-bit · same value · 384B total', width: 210, group: 'enc' },
+  { id: 'index',    header: 'i',                   subHeader: '',                           width: 52,  group: 'matrix'   },
+  // Secret s
+  { id: 's0',       header: 's[0][i]',              subHeader: 'CBD · 16-bit',               width: 175, group: 'secret'   },
+  { id: 's1',       header: 's[1][i]',              subHeader: 'CBD · 16-bit',               width: 175, group: 'secret'   },
+  // Matrix A (raw)
+  { id: 'a00',      header: 'A[0][0][i]',           subHeader: '16-bit',                     width: 175, group: 'matrix'   },
+  { id: 'a01',      header: 'A[0][1][i]',           subHeader: '16-bit',                     width: 175, group: 'matrix'   },
+  { id: 'a10',      header: 'A[1][0][i]',           subHeader: '16-bit',                     width: 175, group: 'matrix'   },
+  { id: 'a11',      header: 'A[1][1][i]',           subHeader: '16-bit',                     width: 175, group: 'matrix'   },
+  // NTT(A)
+  { id: 'nttA00',   header: 'NTT(A[0][0])[i]',     subHeader: '16-bit · NTT domain',        width: 185, group: 'ntta'     },
+  { id: 'nttA01',   header: 'NTT(A[0][1])[i]',     subHeader: '16-bit · NTT domain',        width: 185, group: 'ntta'     },
+  { id: 'nttA10',   header: 'NTT(A[1][0])[i]',     subHeader: '16-bit · NTT domain',        width: 185, group: 'ntta'     },
+  { id: 'nttA11',   header: 'NTT(A[1][1])[i]',     subHeader: '16-bit · NTT domain',        width: 185, group: 'ntta'     },
+  // NTT(s)
+  { id: 'nttS0',    header: 'NTT(s[0])[i]',        subHeader: '16-bit · NTT domain',        width: 185, group: 'ntts'     },
+  { id: 'nttS1',    header: 'NTT(s[1])[i]',        subHeader: '16-bit · NTT domain',        width: 185, group: 'ntts'     },
+  // NTT(A) · NTT(s) pointwise
+  { id: 'nttProd0', header: '(NTT(A)·NTT(s))[0][i]', subHeader: 'pointwise product · row 0 term 0', width: 210, group: 'prod' },
+  { id: 'nttProd1', header: '(NTT(A)·NTT(s))[0][i]', subHeader: 'pointwise product · row 0 term 1', width: 210, group: 'prod' },
+  // INTT → AS
+  { id: 'as0',      header: 'INTT(NTT(A)·NTT(s))[0][i]', subHeader: '= (AS)[0][i] · 16-bit', width: 230, group: 'as'    },
+  { id: 'as1',      header: 'INTT(NTT(A)·NTT(s))[1][i]', subHeader: '= (AS)[1][i] · 16-bit', width: 230, group: 'as'    },
+  // t = AS + e
+  { id: 't_poly0',  header: 't[0][i] = (AS+e)[0]', subHeader: '16-bit · 512B',              width: 185, group: 'rawt'     },
+  { id: 't_poly1',  header: 't[1][i] = (AS+e)[1]', subHeader: '16-bit · 512B',              width: 185, group: 'rawt'     },
+  // Encoded
+  { id: 'enc0',     header: 'enc[0][i]',            subHeader: '12-bit · same value · 384B', width: 205, group: 'enc'      },
+  { id: 'enc1',     header: 'enc[1][i]',            subHeader: '12-bit · same value · 384B', width: 205, group: 'enc'      },
 ];
 
 const COL_BYTES: Partial<Record<string, number>> = {
   s0: 2, s1: 2,
   a00: 2, a01: 2, a10: 2, a11: 2,
+  nttA00: 2, nttA01: 2, nttA10: 2, nttA11: 2,
+  nttS0: 2, nttS1: 2,
+  nttProd0: 2, nttProd1: 2,
   as0: 2, as1: 2,
   t_poly0: 2, t_poly1: 2,
   enc0: 1.5, enc1: 1.5,
@@ -50,18 +69,24 @@ const COL_BYTES: Partial<Record<string, number>> = {
 const GROUP_STYLE: Record<ColDef['group'], { bg: string; text: string; border: string }> = {
   secret: { bg: 'bg-emerald-950',  text: 'text-emerald-300', border: 'border-emerald-800' },
   matrix: { bg: 'bg-gray-900',     text: 'text-gray-300',    border: 'border-gray-700'    },
+  ntta:   { bg: 'bg-violet-950',   text: 'text-violet-300',  border: 'border-violet-700'  },
+  ntts:   { bg: 'bg-fuchsia-950',  text: 'text-fuchsia-300', border: 'border-fuchsia-700' },
+  prod:   { bg: 'bg-rose-950',     text: 'text-rose-300',    border: 'border-rose-700'    },
   as:     { bg: 'bg-blue-950',     text: 'text-blue-300',    border: 'border-blue-800'    },
   rawt:   { bg: 'bg-amber-950',    text: 'text-amber-300',   border: 'border-amber-800'   },
   enc:    { bg: 'bg-indigo-950',   text: 'text-cyan-300',    border: 'border-indigo-700'  },
 };
 
 const GROUPS: { label: string; ids: string[]; style: ColDef['group'] }[] = [
-  { label: 'Index',                                      ids: ['index'],                          style: 'matrix' },
-  { label: 'Secret s  (CBD small coefficients)',         ids: ['s0','s1'],                        style: 'secret' },
-  { label: 'Matrix A  (uniform random)',                 ids: ['a00','a01','a10','a11'],           style: 'matrix' },
-  { label: 'AS = A · s  (intermediate)',                 ids: ['as0','as1'],                      style: 'as'     },
-  { label: 't = AS + e  (raw public key · 2×512B = 1024B)', ids: ['t_poly0','t_poly1'],           style: 'rawt'   },
-  { label: 'Encoded t  (same value · 12-bit · 2×384B = 768B)', ids: ['enc0','enc1'],             style: 'enc'    },
+  { label: 'i',                                                   ids: ['index'],                              style: 'matrix' },
+  { label: 'Secret s',                                            ids: ['s0','s1'],                            style: 'secret' },
+  { label: 'Matrix A (raw)',                                      ids: ['a00','a01','a10','a11'],               style: 'matrix' },
+  { label: 'NTT(A)',                                              ids: ['nttA00','nttA01','nttA10','nttA11'],   style: 'ntta'   },
+  { label: 'NTT(s)',                                              ids: ['nttS0','nttS1'],                       style: 'ntts'   },
+  { label: 'NTT(A) · NTT(s)  (pointwise, row 0)',                ids: ['nttProd0','nttProd1'],                 style: 'prod'   },
+  { label: 'INTT(NTT(A)·NTT(s)) = AS',                          ids: ['as0','as1'],                           style: 'as'     },
+  { label: 't = AS + e  (raw · 2×512B = 1024B)',                 ids: ['t_poly0','t_poly1'],                   style: 'rawt'   },
+  { label: 'Encoded t  (12-bit · 2×384B = 768B)',                ids: ['enc0','enc1'],                         style: 'enc'    },
 ];
 
 // ── Color helpers ──────────────────────────────────────────────────────────────
@@ -189,13 +214,20 @@ export function CoefficientTable() {
 
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-3 text-xs mb-2 px-1">
-        {(['secret','matrix','as','rawt','enc'] as ColDef['group'][]).map((g) => (
+        {(['secret','matrix','ntta','ntts','prod','as','rawt','enc'] as ColDef['group'][]).map((g) => (
           <span key={g} className={`flex items-center gap-1 ${GROUP_STYLE[g].text}`}>
             <span className={`inline-block w-3 h-3 rounded ${GROUP_STYLE[g].bg} border ${GROUP_STYLE[g].border}`} />
-            {g === 'secret' ? 'Secret s' : g === 'matrix' ? 'Matrix A' : g === 'as' ? 'AS' : g === 'rawt' ? 't = AS+e (raw)' : 'Encoded t (12-bit)'}
+            {g === 'secret' ? 'Secret s'
+              : g === 'matrix' ? 'Matrix A'
+              : g === 'ntta'   ? 'NTT(A)'
+              : g === 'ntts'   ? 'NTT(s)'
+              : g === 'prod'   ? 'NTT(A)·NTT(s)'
+              : g === 'as'     ? 'INTT(·) = AS'
+              : g === 'rawt'   ? 't = AS+e'
+              :                  'enc(t) 12-bit'}
           </span>
         ))}
-        <span className="text-gray-500 ml-2">← scroll right to see full pipeline →</span>
+        <span className="text-gray-500 ml-2">← scroll right →</span>
       </div>
 
       <div ref={parentRef} className="h-[640px] overflow-auto border border-gray-700 rounded">

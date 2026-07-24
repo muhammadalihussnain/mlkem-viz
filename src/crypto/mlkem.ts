@@ -56,26 +56,39 @@ function generateMatrixA(): Matrix {
 }
 
 /**
- * Matrix-vector multiplication in NTT domain
- * AS = A * s where multiplication is polynomial multiplication
+ * Matrix-vector multiplication in NTT domain.
+ * Returns AS result AND all NTT intermediates for visualization.
  */
-function matrixVectorMul(A: Matrix, s: Polynomial[]): Polynomial[] {
+function matrixVectorMul(A: Matrix, s: Polynomial[]): {
+  result: Polynomial[];
+  nttA: Matrix;
+  nttS: Polynomial[];
+  nttProduct: Polynomial[]; // pointwise products for row 0 (A[0][0]*s[0] and A[0][1]*s[1])
+} {
   const k = A.length;
   const result: Polynomial[] = [];
-  
+
+  // Compute NTT of all A polynomials and s polynomials once
+  const nttA: Matrix = A.map(row => row.map(poly => ntt(poly)));
+  const nttS: Polynomial[] = s.map(poly => ntt(poly));
+
+  // Capture pointwise products for row 0 columns (for display)
+  const nttProduct: Polynomial[] = [
+    nttMultiply(nttA[0][0], nttS[0]), // NTT(A[0][0]) * NTT(s[0])
+    nttMultiply(nttA[0][1], nttS[1]), // NTT(A[0][1]) * NTT(s[1])
+  ];
+
   for (let i = 0; i < k; i++) {
     let acc = new Array(N).fill(0);
     for (let j = 0; j < k; j++) {
-      const aNtt = ntt(A[i][j]);
-      const sNtt = ntt(s[j]);
-      const product = nttMultiply(aNtt, sNtt);
+      const product = nttMultiply(nttA[i][j], nttS[j]);
       const productPoly = inverseNtt(product);
       acc = acc.map((c, idx) => modQ(c + productPoly[idx]));
     }
     result.push(acc);
   }
-  
-  return result;
+
+  return { result, nttA, nttS, nttProduct };
 }
 
 /**
@@ -124,9 +137,9 @@ export async function generateKeyPair(): Promise<KeyGenResult> {
   crypto.getRandomValues(eBytes1);
   const e = [cbd(eBytes0), cbd(eBytes1)];
 
-  // Matrix-vector multiplication AS
+  // Matrix-vector multiplication AS — also captures NTT intermediates
   const multStart = performance.now();
-  const asIntermediate = matrixVectorMul(matrixA, s);
+  const { result: asIntermediate, nttA, nttS, nttProduct } = matrixVectorMul(matrixA, s);
   const matrixMultTime = performance.now() - multStart;
 
   // Add error: t = AS + e
@@ -143,14 +156,17 @@ export async function generateKeyPair(): Promise<KeyGenResult> {
 
   return {
     matrixA,
+    nttA,
     secretVector: { s0: s[0], s1: s[1] },
+    nttS,
     errorVector: { e0: e[0], e1: e[1] },
     asIntermediate,
+    nttProduct,
     rawT,
     encodedT1: encoded.map(enc => enc.t1),
     encodedT0: encoded.map(enc => enc.t0),
     timing: {
-      nttTime: matrixMultTime * 0.7, // NTT dominates mult time
+      nttTime: matrixMultTime * 0.7,
       matrixMultTime,
       errorAddTime,
       encodingTime,
