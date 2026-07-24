@@ -54,26 +54,36 @@ export function encodeMessage(m: Uint8Array): Polynomial {
   return poly;
 }
 
+/**
+ * Compress(x, d) = round(x · 2^d / q) mod 2^d  (FIPS 203 §4.2.1)
+ * Maps a coefficient in [0, q-1] to [0, 2^d - 1]
+ */
+export function compress(x: number, d: number): number {
+  return Math.round((x * (1 << d)) / Q) & ((1 << d) - 1);
+}
+
 export interface EncapResult {
   // Bob's randomness (all CBD small)
-  r: Polynomial[];        // random vector r, 2 polynomials
-  e1: Polynomial[];       // error vector e1, 2 polynomials
-  e2: Polynomial;         // error scalar e2, 1 polynomial
-  m: Uint8Array;          // shared secret — 32 random bytes
-  encM: Polynomial;       // encode(m) as polynomial
+  r: Polynomial[];
+  e1: Polynomial[];
+  e2: Polynomial;
+  m: Uint8Array;
+  encM: Polynomial;
 
   // NTT intermediates — u = Aᵀr + e1
-  nttAT: Matrix;          // NTT(Aᵀ) — column-row swap of NTT(A)
-  nttR: Polynomial[];     // NTT(r)
-  nttAtR: Polynomial[];   // NTT(Aᵀ)·NTT(r) pointwise (row 0 terms shown)
-  atR: Polynomial[];      // Aᵀr = INTT(NTT(Aᵀ)·NTT(r))
+  nttAT: Matrix;
+  nttR: Polynomial[];
+  nttAtR: Polynomial[];
+  atR: Polynomial[];
   u: Polynomial[];        // u = Aᵀr + e1  (16-bit, 2×512B = 1024B)
-  uEnc: number[][];       // encode12(u)  (12-bit, 2×384B = 768B)
+  uEnc: number[][];       // encode12(u)   (12-bit, 2×384B = 768B)
+  uComp: number[][];      // Compress(u, 10) — 10-bit, 2×320B = 640B
 
   // v = tᵀr + e2 + encode(m)
-  tTR: Polynomial;        // tᵀr = Σ t[k]·r[k]
-  v: Polynomial;          // v = tᵀr + e2 + encode(m)  (16-bit, 256 coefficients)
+  tTR: Polynomial;
+  v: Polynomial;          // v = tᵀr + e2 + encode(m)  (16-bit, 512B)
   vEnc: number[];         // encode12(v)  (12-bit, 384B)
+  vComp: number[];        // Compress(v, 4) — 4-bit, 128B
 }
 
 // ── Per-coefficient row (Alice keygen pipeline) ────────────────────────────────
@@ -105,9 +115,11 @@ export interface EncapRow {
   atR0: number; atR1: number;          // Aᵀr = INTT(·)
   u0: number; u1: number;              // u = Aᵀr + e1  (16-bit)
   uEnc0: number; uEnc1: number;        // encode12(u)   (12-bit)
-  encM: number;                        // encode(m)[i]  — message polynomial
+  uComp0: number; uComp1: number;      // Compress(u, 10) — 10-bit
+  encM: number;                        // encode(m)[i]
   tTR: number;                         // tᵀr[i]
   e2: number;                          // e2[i]
   v: number;                           // v = tᵀr + e2 + encode(m)  (16-bit)
   vEnc: number;                        // encode12(v)   (12-bit)
+  vComp: number;                       // Compress(v, 4) — 4-bit
 }

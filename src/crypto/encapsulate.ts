@@ -10,7 +10,7 @@
 
 import { N, ETA } from './types';
 import type { Polynomial, Matrix, KeyGenResult, EncapResult } from './types';
-import { encodeMessage } from './types';
+import { encodeMessage, compress } from './types';
 import { ntt, inverseNtt, nttMultiply, modQ } from './ntt';
 
 /** CBD sampling (same as keygen) */
@@ -101,12 +101,12 @@ export async function encapsulate(keyGen: KeyGenResult): Promise<EncapResult> {
 
   // u = Aᵀr + e1
   const u = atR.map((poly, i) => polyAdd(poly, e1[i]));
-  const uEnc = u.map(encode12);
+  const uEnc  = u.map(encode12);
+  const uComp = u.map(poly => poly.map(c => compress(c, 10)));
 
   // ── v = tᵀr + e2 + encode(m) ────────────────────────────────────────────────
-  // tᵀr = INTT(Σ NTT(t[k]) · NTT(r[k]))
   const nttT = keyGen.rawT.map(poly => ntt(poly));
-  const nttRpoly = nttR; // same r
+  const nttRpoly = nttR;
 
   let tTRacc = new Array(N).fill(0);
   nttT.forEach((nt, k) => {
@@ -115,15 +115,15 @@ export async function encapsulate(keyGen: KeyGenResult): Promise<EncapResult> {
   });
   const tTR = tTRacc;
 
-  // v = tᵀr + e2 + encode(m)
-  const v = tTR.map((c, i) => modQ(c + e2[i] + encM[i]));
-  const vEnc = encode12(v);
+  const v     = tTR.map((c, i) => modQ(c + e2[i] + encM[i]));
+  const vEnc  = encode12(v);
+  const vComp = v.map(c => compress(c, 4));
 
   return {
     r, e1, e2, m, encM,
     nttAT, nttR, nttAtR,
-    atR, u, uEnc,
-    tTR, v, vEnc,
+    atR, u, uEnc, uComp,
+    tTR, v, vEnc, vComp,
   };
 }
 
@@ -149,10 +149,13 @@ export function buildEncapRows(enc: EncapResult) {
     u1: enc.u[1][i],
     uEnc0: enc.uEnc[0][i],
     uEnc1: enc.uEnc[1][i],
+    uComp0: enc.uComp[0][i],
+    uComp1: enc.uComp[1][i],
     encM: enc.encM[i],
     tTR: enc.tTR[i],
     e2: enc.e2[i],
     v: enc.v[i],
     vEnc: enc.vEnc[i],
+    vComp: enc.vComp[i],
   }));
 }
