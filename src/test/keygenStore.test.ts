@@ -62,8 +62,8 @@ describe('useKeyGenStore', () => {
     const result = mockResult();
     useKeyGenStore.getState().setResult(result);
     const { rows } = useKeyGenStore.getState();
-    expect(rows[5].t1_enc_poly1).toBe(result.encodedT1[1][5]);
-    expect(rows[5].t0_enc_poly1).toBe(result.encodedT0[1][5]);
+    expect(rows[5].t1_p1).toBe(result.encodedT1[1][5]);
+    expect(rows[5].t0_p1).toBe(result.encodedT0[1][5]);
   });
 
   it('setGenerating sets isGenerating', () => {
