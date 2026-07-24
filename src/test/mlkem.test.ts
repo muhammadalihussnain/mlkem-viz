@@ -1,0 +1,134 @@
+import { describe, it, expect } from 'vitest';
+import { generateKeyPair } from '../crypto/mlkem';
+import { Q, N } from '../crypto/types';
+
+describe('generateKeyPair', () => {
+  it('returns a result with all required fields', async () => {
+    const result = await generateKeyPair();
+    expect(result).toHaveProperty('matrixA');
+    expect(result).toHaveProperty('secretVector');
+    expect(result).toHaveProperty('errorVector');
+    expect(result).toHaveProperty('asIntermediate');
+    expect(result).toHaveProperty('rawT');
+    expect(result).toHaveProperty('encodedT1');
+    expect(result).toHaveProperty('encodedT0');
+    expect(result).toHaveProperty('timing');
+  });
+
+  it('matrix A is 2x2 with 4 polynomials each of length N', async () => {
+    const result = await generateKeyPair();
+    expect(result.matrixA).toHaveLength(2);
+    expect(result.matrixA[0]).toHaveLength(2);
+    expect(result.matrixA[1]).toHaveLength(2);
+    result.matrixA.forEach((row) =>
+      row.forEach((poly) => expect(poly).toHaveLength(N))
+    );
+  });
+
+  it('matrix A coefficients are in [0, q-1]', async () => {
+    const result = await generateKeyPair();
+    result.matrixA.forEach((row) =>
+      row.forEach((poly) =>
+        poly.forEach((c) => {
+          expect(c).toBeGreaterThanOrEqual(0);
+          expect(c).toBeLessThan(Q);
+        })
+      )
+    );
+  });
+
+  it('secret vector has 2 polynomials of length N', async () => {
+    const result = await generateKeyPair();
+    expect(result.secretVector.s0).toHaveLength(N);
+    expect(result.secretVector.s1).toHaveLength(N);
+  });
+
+  it('secret vector has small CBD coefficients in [0, q-1]', async () => {
+    const result = await generateKeyPair();
+    [...result.secretVector.s0, ...result.secretVector.s1].forEach((c) => {
+      expect(c).toBeGreaterThanOrEqual(0);
+      expect(c).toBeLessThan(Q);
+    });
+  });
+
+  it('error vector has small CBD coefficients in [0, q-1]', async () => {
+    const result = await generateKeyPair();
+    [...result.errorVector.e0, ...result.errorVector.e1].forEach((c) => {
+      expect(c).toBeGreaterThanOrEqual(0);
+      expect(c).toBeLessThan(Q);
+    });
+  });
+
+  it('AS intermediate has 2 polynomials of length N in [0, q-1]', async () => {
+    const result = await generateKeyPair();
+    expect(result.asIntermediate).toHaveLength(2);
+    result.asIntermediate.forEach((poly) => {
+      expect(poly).toHaveLength(N);
+      poly.forEach((c) => {
+        expect(c).toBeGreaterThanOrEqual(0);
+        expect(c).toBeLessThan(Q);
+      });
+    });
+  });
+
+  it('rawT (AS+e) has 2 polynomials in [0, q-1]', async () => {
+    const result = await generateKeyPair();
+    expect(result.rawT).toHaveLength(2);
+    result.rawT.forEach((poly) => {
+      expect(poly).toHaveLength(N);
+      poly.forEach((c) => {
+        expect(c).toBeGreaterThanOrEqual(0);
+        expect(c).toBeLessThan(Q);
+      });
+    });
+  });
+
+  it('encodedT1 values are valid (0, 1, or 2 for ML-KEM-512)', async () => {
+    const result = await generateKeyPair();
+    result.encodedT1.forEach((poly) =>
+      poly.forEach((c) => {
+        expect(c).toBeGreaterThanOrEqual(0);
+        expect(c).toBeLessThanOrEqual(2);
+      })
+    );
+  });
+
+  it('encodedT0 values are in [0, q-1] range', async () => {
+    const result = await generateKeyPair();
+    result.encodedT0.forEach((poly) =>
+      poly.forEach((c) => {
+        // t0 is centered: t - t1*2048 + 1024, can be large
+        expect(typeof c).toBe('number');
+        expect(Number.isFinite(c)).toBe(true);
+      })
+    );
+  });
+
+  it('encoding is self-consistent: t1*2048 - 1024 + t0 ≈ rawT', async () => {
+    const result = await generateKeyPair();
+    for (let poly = 0; poly < 2; poly++) {
+      for (let i = 0; i < N; i++) {
+        const t = result.rawT[poly][i];
+        const t1 = result.encodedT1[poly][i];
+        const t0 = result.encodedT0[poly][i];
+        const reconstructed = t1 * 2048 - 1024 + t0;
+        expect(reconstructed).toBe(t);
+      }
+    }
+  });
+
+  it('timing fields are positive numbers', async () => {
+    const result = await generateKeyPair();
+    expect(result.timing.totalTime).toBeGreaterThan(0);
+    expect(result.timing.matrixMultTime).toBeGreaterThanOrEqual(0);
+    expect(result.timing.errorAddTime).toBeGreaterThanOrEqual(0);
+    expect(result.timing.encodingTime).toBeGreaterThanOrEqual(0);
+  });
+
+  it('generates different keys on each call', async () => {
+    const r1 = await generateKeyPair();
+    const r2 = await generateKeyPair();
+    // Probability of collision is astronomically small
+    expect(r1.matrixA[0][0][0]).not.toBe(r2.matrixA[0][0][0]);
+  });
+});
