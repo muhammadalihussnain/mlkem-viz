@@ -1,161 +1,138 @@
 /**
- * ML-KEM-512 Encapsulation (Bob side)
- *
- * Bob receives Alice's public key pk = (ρ, t).
- * Bob computes:
- *   u = Aᵀr + e1   — ciphertext vector
- *   v = tᵀr + e2 + encode(m)  — ciphertext scalar
- * and sends (u, v) to Alice.
+ * Bob Encapsulation + Alice Decapsulation (FIPS 203 §7.2 / §7.3)
  */
 
-import { N, ETA } from './types';
-import type { Polynomial, Matrix, KeyGenResult, EncapResult } from './types';
-import { encodeMessage, compress } from './types';
+import type {
+  AliceKeyStage, AliceNttStage, AliceTStage, AlicePubKeyStage,
+  BobAStage, BobUVStage, BobCompressStage,
+  AliceSTUStage, AliceDecapStage, CompareStage,
+} from './types';
+import { cbd, expandA, polyAdd, encodeMessage, decodeMessage, compress } from './mlkem';
 import { ntt, inverseNtt, nttMultiply, modQ } from './ntt';
 
-/** CBD sampling (same as keygen) */
-function cbd(bytes: Uint8Array): Polynomial {
-  const poly = new Array(N).fill(0);
-  for (let i = 0; i < N; i++) {
-    let a = 0, b = 0;
-    for (let j = 0; j < ETA; j++) {
-      const bi = Math.floor((i * 2 * ETA + j) / 8);
-      a += (bytes[bi] >> ((i * 2 * ETA + j) % 8)) & 1;
-    }
-    for (let j = 0; j < ETA; j++) {
-      const bi = Math.floor((i * 2 * ETA + ETA + j) / 8);
-      b += (bytes[bi] >> ((i * 2 * ETA + ETA + j) % 8)) & 1;
-    }
-    poly[i] = modQ(a - b);
-  }
-  return poly;
+// ── Bob Stage 1: derive A from ρ (XOF) ───────────────────────────────────────
+
+export function stageBobGenerateA(pk: AlicePubKeyStage, aliceKey: AliceKeyStage): BobAStage {
+  const rho = pk.publicKey.slice(0, 32);
+  const A   = expandA(rho);
+
+  const aMatch = [
+    [A[0][0], aliceKey.A00],
+    [A[0][1], aliceKey.A01],
+    [A[1][0], aliceKey.A10],
+    [A[1][1], aliceKey.A11],
+  ].every(([b, a]) => b.every((c, i) => c === a[i]));
+
+  if (!aMatch) console.warn('[ML-KEM] Bob A ≠ Alice A');
+
+  return { bobA00: A[0][0], bobA01: A[0][1], bobA10: A[1][0], bobA11: A[1][1], aMatch };
 }
 
-function polyAdd(a: Polynomial, b: Polynomial): Polynomial {
-  return a.map((c, i) => modQ(c + b[i]));
-}
+// ── Bob Stage 2: u = A^T·r + e1,  v = t^T·r + e2 + encode(m) ─────────────────
 
-function encode12(poly: Polynomial): number[] {
-  return poly.map(c => c & 0xFFF);
-}
-
-/**
- * Transpose a k×k matrix of polynomials.
- * NTT(Aᵀ)[i][j] = NTT(A)[j][i]
- */
-function transposeMatrix(A: Matrix): Matrix {
-  const k = A.length;
-  return Array.from({ length: k }, (_, i) =>
-    Array.from({ length: k }, (_, j) => A[j][i])
-  );
-}
-
-/**
- * Matrix-vector multiplication: result[i] = INTT(Σⱼ M[i][j] · v[j])
- * M and v are already in NTT domain.
- */
-function nttMatVecMul(M: Matrix, v: Polynomial[]): Polynomial[] {
-  return M.map(row => {
-    let acc = new Array(N).fill(0);
-    row.forEach((col, j) => {
-      const prod = inverseNtt(nttMultiply(col, v[j]));
-      acc = acc.map((c, i) => modQ(c + prod[i]));
-    });
-    return acc;
-  });
-}
-
-export async function encapsulate(keyGen: KeyGenResult): Promise<EncapResult> {
-  // ── Sample Bob's randomness ──────────────────────────────────────────────────
-  const rBytes = [new Uint8Array(N), new Uint8Array(N)];
-  const e1Bytes = [new Uint8Array(N), new Uint8Array(N)];
-  const e2Bytes = new Uint8Array(N);
-  [rBytes[0], rBytes[1], e1Bytes[0], e1Bytes[1], e2Bytes].forEach(b =>
-    crypto.getRandomValues(b)
-  );
-
-  const r  = rBytes.map(cbd);
-  const e1 = e1Bytes.map(cbd);
-  const e2 = cbd(e2Bytes);
-
-  // ── Shared secret m ──────────────────────────────────────────────────────────
+export function stageBobComputeUV(
+  tStage: AliceTStage,
+  _nttStage: AliceNttStage,
+  bobA: BobAStage,
+): BobUVStage {
+  // Random secret m (256 bits = 32 bytes)
   const m = new Uint8Array(32);
   crypto.getRandomValues(m);
   const encM = encodeMessage(m);
 
-  // ── u = Aᵀr + e1 ────────────────────────────────────────────────────────────
-  // NTT(Aᵀ) is the transpose of NTT(A)
-  const nttAT = transposeMatrix(keyGen.nttA);
+  // Bob's randomness: r, e1, e2  (CBD, eta=2, 64 bytes each)
+  const rb0 = new Uint8Array(64); crypto.getRandomValues(rb0);
+  const rb1 = new Uint8Array(64); crypto.getRandomValues(rb1);
+  const e1b0 = new Uint8Array(64); crypto.getRandomValues(e1b0);
+  const e1b1 = new Uint8Array(64); crypto.getRandomValues(e1b1);
+  const e2b  = new Uint8Array(64); crypto.getRandomValues(e2b);
+
+  const r0 = cbd(rb0);   const r1 = cbd(rb1);
+  const e1_0 = cbd(e1b0); const e1_1 = cbd(e1b1);
+  const e2   = cbd(e2b);
 
   // NTT(r)
-  const nttR = r.map(poly => ntt(poly));
+  const nttR0 = ntt(r0); const nttR1 = ntt(r1);
 
-  // Pointwise products for row 0 (visualisation)
-  const nttAtR: Polynomial[] = [
-    nttMultiply(nttAT[0][0], nttR[0]),
-    nttMultiply(nttAT[0][1], nttR[1]),
-  ];
+  // A^T·r  (transpose: A^T[i][j] = A[j][i])
+  // row 0: A00·r0 + A10·r1
+  // row 1: A01·r0 + A11·r1
+  const nttA00 = ntt(bobA.bobA00); const nttA01 = ntt(bobA.bobA01);
+  const nttA10 = ntt(bobA.bobA10); const nttA11 = ntt(bobA.bobA11);
 
-  // Full Aᵀr via INTT
-  const atR = nttMatVecMul(nttAT, nttR);
+  const atR0ntt = nttA00.map((_c, i) => modQ(
+    nttMultiply(nttA00, nttR0)[i] + nttMultiply(nttA10, nttR1)[i]
+  ));
+  const atR1ntt = nttA01.map((_c, i) => modQ(
+    nttMultiply(nttA01, nttR0)[i] + nttMultiply(nttA11, nttR1)[i]
+  ));
 
-  // u = Aᵀr + e1
-  const u = atR.map((poly, i) => polyAdd(poly, e1[i]));
-  const uEnc  = u.map(encode12);
-  const uComp = u.map(poly => poly.map(c => compress(c, 10)));
+  const AtR0 = inverseNtt(atR0ntt);
+  const AtR1 = inverseNtt(atR1ntt);
 
-  // ── v = tᵀr + e2 + encode(m) ────────────────────────────────────────────────
-  const nttT = keyGen.rawT.map(poly => ntt(poly));
-  const nttRpoly = nttR;
+  const U0 = polyAdd(AtR0, e1_0);
+  const U1 = polyAdd(AtR1, e1_1);
 
-  let tTRacc = new Array(N).fill(0);
-  nttT.forEach((nt, k) => {
-    const prod = inverseNtt(nttMultiply(nt, nttRpoly[k]));
-    tTRacc = tTRacc.map((c, i) => modQ(c + prod[i]));
-  });
-  const tTR = tTRacc;
+  // V = t^T·r + e2 + encode(m)
+  // t^T·r = t0·r0 + t1·r1  (NTT domain add, then INTT)
+  const nttT0 = ntt(tStage.t0); const nttT1 = ntt(tStage.t1);
+  const tTrntt = nttT0.map((_c, i) => modQ(
+    nttMultiply(nttT0, nttR0)[i] + nttMultiply(nttT1, nttR1)[i]
+  ));
+  const tTr = inverseNtt(tTrntt);
+  const V   = tTr.map((c, i) => modQ(c + e2[i] + encM[i]));
 
-  const v     = tTR.map((c, i) => modQ(c + e2[i] + encM[i]));
-  const vEnc  = encode12(v);
-  const vComp = v.map(c => compress(c, 4));
+  return { m, encM, r0, r1, e1_0, e1_1, e2, nttR0, nttR1, AtR0, AtR1, U0, U1, tTr, V };
+}
 
+// ── Bob Stage 3: compress ciphertext ─────────────────────────────────────────
+
+export function stageBobCompress(uv: BobUVStage): BobCompressStage {
   return {
-    r, e1, e2, m, encM,
-    nttAT, nttR, nttAtR,
-    atR, u, uEnc, uComp,
-    tTR, v, vEnc, vComp,
+    U0c: uv.U0.map(c => compress(c, 10)),
+    U1c: uv.U1.map(c => compress(c, 10)),
+    Vc:  uv.V.map(c  => compress(c, 4)),
   };
 }
 
-/** Build one EncapRow per coefficient index */
-export function buildEncapRows(enc: EncapResult) {
-  return Array.from({ length: N }, (_, i) => ({
-    index: i,
-    r0: enc.r[0][i],
-    r1: enc.r[1][i],
-    e1_0: enc.e1[0][i],
-    e1_1: enc.e1[1][i],
-    nttAt00: enc.nttAT[0][0][i],
-    nttAt01: enc.nttAT[0][1][i],
-    nttAt10: enc.nttAT[1][0][i],
-    nttAt11: enc.nttAT[1][1][i],
-    nttR0: enc.nttR[0][i],
-    nttR1: enc.nttR[1][i],
-    nttAtR0: enc.nttAtR[0][i],
-    nttAtR1: enc.nttAtR[1][i],
-    atR0: enc.atR[0][i],
-    atR1: enc.atR[1][i],
-    u0: enc.u[0][i],
-    u1: enc.u[1][i],
-    uEnc0: enc.uEnc[0][i],
-    uEnc1: enc.uEnc[1][i],
-    uComp0: enc.uComp[0][i],
-    uComp1: enc.uComp[1][i],
-    encM: enc.encM[i],
-    tTR: enc.tTR[i],
-    e2: enc.e2[i],
-    v: enc.v[i],
-    vEnc: enc.vEnc[i],
-    vComp: enc.vComp[i],
-  }));
+// ── Alice Decap Stage 1: s^T·u ────────────────────────────────────────────────
+
+export function stageAliceSTU(
+  _aliceKey: AliceKeyStage,
+  nttStage: AliceNttStage,
+  uv: BobUVStage,
+): AliceSTUStage {
+  const nttU0 = ntt(uv.U0); const nttU1 = ntt(uv.U1);
+  // s^T·u = s0·u0 + s1·u1  (NTT pointwise, then INTT)
+  const sTUntt = nttStage.nttS0.map((_c, i) => modQ(
+    nttMultiply(nttStage.nttS0, nttU0)[i] + nttMultiply(nttStage.nttS1, nttU1)[i]
+  ));
+  const sTU = inverseNtt(sTUntt);
+  return { nttU0, nttU1, sTU };
+}
+
+// ── Alice Decap Stage 2: w = v - s^T·u,  decode(w) ────────────────────────────
+
+export function stageAliceDecap(uv: BobUVStage, stu: AliceSTUStage): AliceDecapStage {
+  const w         = uv.V.map((c, i) => modQ(c - stu.sTU[i]));
+  const noise     = w.map((c, i) => modQ(c - uv.encM[i]));
+  const recovered = decodeMessage(w);   // 256 bits: 0 or 1
+
+  // Pack 256 recovered bits back into 32 bytes
+  const recoveredBytes = new Uint8Array(32);
+  for (let i = 0; i < 256; i++) {
+    if (recovered[i]) recoveredBytes[i >> 3] |= 1 << (i & 7);
+  }
+
+  return { w, noise, recovered, recoveredBytes };
+}
+
+// ── Compare Bob's m vs Alice's recovered ─────────────────────────────────────
+
+export function stageCompare(m: Uint8Array, recovered: number[]): CompareStage {
+  const bobBits = Array.from(m).flatMap(b =>
+    Array.from({ length: 8 }, (_, i) => (b >> i) & 1)
+  );
+  const errCount = bobBits.filter((b, i) => b !== recovered[i]).length;
+  return { bobBits, aliceBits: recovered, errCount };
 }

@@ -1,132 +1,31 @@
+// Store tests updated for new step-by-step store
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useKeyGenStore } from '../store/keygenStore';
-import { generateKeyPair } from '../crypto/mlkem';
-import { encapsulate, buildEncapRows } from '../crypto/encapsulate';
-import type { KeyGenResult } from '../crypto/types';
-import { N } from '../crypto/types';
+import { useStore } from '../store/keygenStore';
 
-function mockResult(): KeyGenResult {
-  const poly = () => Array.from({ length: N }, (_, i) => i % 3329);
-  return {
-    rho: new Uint8Array(32),
-    matrixA: [[poly(), poly()], [poly(), poly()]],
-    nttA: [[poly(), poly()], [poly(), poly()]],
-    secretVector: { s0: poly(), s1: poly() },
-    nttS: [poly(), poly()],
-    errorVector: { e0: poly(), e1: poly() },
-    asIntermediate: [poly(), poly()],
-    nttProduct: [poly(), poly()],
-    rawT: [poly(), poly()],
-    encodedT1: [new Array(N).fill(1), new Array(N).fill(0)],
-    encodedT0: [poly(), poly()],
-    publicKey: new Uint8Array(800),
-    timing: { nttTime: 1, matrixMultTime: 2, errorAddTime: 0.5, encodingTime: 0.3, totalTime: 5 },
-  };
-}
-
-describe('useKeyGenStore', () => {
+describe('useStore', () => {
   beforeEach(() => {
-    useKeyGenStore.setState({
-      result: null, rows: [], encapResult: null, encapRows: [],
-      isGenerating: false, isEncapsulating: false,
-      error: null, filterRange: [0, 3328], searchIndex: '',
-    });
+    useStore.getState().reset();
   });
 
-  it('initial state is correct', () => {
-    const s = useKeyGenStore.getState();
-    expect(s.result).toBeNull();
-    expect(s.rows).toHaveLength(0);
-    expect(s.encapResult).toBeNull();
-    expect(s.encapRows).toHaveLength(0);
-    expect(s.isGenerating).toBe(false);
-    expect(s.isEncapsulating).toBe(false);
-    expect(s.error).toBeNull();
-    expect(s.filterRange).toEqual([0, 3328]);
+  it('initial state is null for all stages', () => {
+    const s = useStore.getState();
+    expect(s.aliceKey).toBeNull();
+    expect(s.aliceNtt).toBeNull();
+    expect(s.aliceT).toBeNull();
+    expect(s.aliceEnc).toBeNull();
+    expect(s.alicePubKey).toBeNull();
+    expect(s.bobA).toBeNull();
+    expect(s.bobUV).toBeNull();
+    expect(s.bobCompress).toBeNull();
+    expect(s.aliceSTU).toBeNull();
+    expect(s.aliceDecap).toBeNull();
+    expect(s.compare).toBeNull();
+    expect(s.busy).toBe(false);
   });
 
-  it('setResult builds 256 rows and clears error', () => {
-    const result = mockResult();
-    useKeyGenStore.getState().setResult(result);
-    const s = useKeyGenStore.getState();
-    expect(s.rows).toHaveLength(256);
-    expect(s.result).toBe(result);
-    expect(s.error).toBeNull();
-  });
-
-  it('rows contain correct index values', () => {
-    useKeyGenStore.getState().setResult(mockResult());
-    const { rows } = useKeyGenStore.getState();
-    rows.forEach((r, i) => expect(r.index).toBe(i));
-  });
-
-  it('rows contain s0 and s1 secret vector coefficients', () => {
-    const result = mockResult();
-    useKeyGenStore.getState().setResult(result);
-    const { rows } = useKeyGenStore.getState();
-    expect(rows[0].s0).toBe(result.secretVector.s0[0]);
-    expect(rows[0].s1).toBe(result.secretVector.s1[0]);
-  });
-
-  it('rows contain NTT intermediate values', () => {
-    const result = mockResult();
-    useKeyGenStore.getState().setResult(result);
-    const { rows } = useKeyGenStore.getState();
-    expect(rows[3].nttA00).toBe(result.nttA[0][0][3]);
-    expect(rows[3].nttS0).toBe(result.nttS[0][3]);
-    expect(rows[3].nttProd0).toBe(result.nttProduct[0][3]);
-    expect(rows[3].as0).toBe(result.asIntermediate[0][3]);
-  });
-
-  it('rows contain encoded values (enc0, enc1) matching encodedT1', () => {
-    const result = mockResult();
-    useKeyGenStore.getState().setResult(result);
-    const { rows } = useKeyGenStore.getState();
-    expect(rows[5].enc0).toBe(result.encodedT1[0][5]);
-    expect(rows[5].enc1).toBe(result.encodedT1[1][5]);
-  });
-
-  it('setEncapResult builds 256 encapRows', async () => {
-    const kg = await generateKeyPair();
-    const enc = await encapsulate(kg);
-    useKeyGenStore.getState().setEncapResult(enc);
-    const s = useKeyGenStore.getState();
-    expect(s.encapResult).toBe(enc);
-    expect(s.encapRows).toHaveLength(256);
-    expect(s.encapRows[0]).toMatchObject(buildEncapRows(enc)[0]);
-  });
-
-  it('setGenerating sets isGenerating', () => {
-    useKeyGenStore.getState().setGenerating(true);
-    expect(useKeyGenStore.getState().isGenerating).toBe(true);
-    useKeyGenStore.getState().setGenerating(false);
-    expect(useKeyGenStore.getState().isGenerating).toBe(false);
-  });
-
-  it('setEncapsulating sets isEncapsulating', () => {
-    useKeyGenStore.getState().setEncapsulating(true);
-    expect(useKeyGenStore.getState().isEncapsulating).toBe(true);
-    useKeyGenStore.getState().setEncapsulating(false);
-    expect(useKeyGenStore.getState().isEncapsulating).toBe(false);
-  });
-
-  it('setError sets error and stops generating and encapsulating', () => {
-    useKeyGenStore.getState().setGenerating(true);
-    useKeyGenStore.getState().setEncapsulating(true);
-    useKeyGenStore.getState().setError('something failed');
-    const s = useKeyGenStore.getState();
-    expect(s.error).toBe('something failed');
-    expect(s.isGenerating).toBe(false);
-    expect(s.isEncapsulating).toBe(false);
-  });
-
-  it('setFilterRange updates filterRange', () => {
-    useKeyGenStore.getState().setFilterRange([100, 2000]);
-    expect(useKeyGenStore.getState().filterRange).toEqual([100, 2000]);
-  });
-
-  it('setSearchIndex updates searchIndex', () => {
-    useKeyGenStore.getState().setSearchIndex('42');
-    expect(useKeyGenStore.getState().searchIndex).toBe('42');
+  it('reset clears all state', () => {
+    useStore.getState().setBusy(true);
+    useStore.getState().reset();
+    expect(useStore.getState().busy).toBe(false);
   });
 });

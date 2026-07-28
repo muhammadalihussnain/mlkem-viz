@@ -1,71 +1,71 @@
 /**
- * State management for key generation and encapsulation results
+ * Step-by-step state store for ML-KEM-512 demo
  */
 
 import { create } from 'zustand';
-import type { KeyGenResult, CoefficientRow, EncapResult, EncapRow } from '../crypto/types';
-import { buildEncapRows } from '../crypto/encapsulate';
+import type {
+  AliceKeyStage, AliceNttStage, AliceTStage, AliceEncStage, AlicePubKeyStage,
+  BobAStage, BobUVStage, BobCompressStage,
+  AliceSTUStage, AliceDecapStage, CompareStage,
+} from '../crypto/types';
 
-interface KeyGenStore {
-  result: KeyGenResult | null;
-  rows: CoefficientRow[];
-  encapResult: EncapResult | null;
-  encapRows: EncapRow[];
-  isGenerating: boolean;
-  isEncapsulating: boolean;
-  error: string | null;
-  filterRange: [number, number];
-  searchIndex: string;
-  setResult: (result: KeyGenResult) => void;
-  setEncapResult: (enc: EncapResult) => void;
-  setGenerating: (v: boolean) => void;
-  setEncapsulating: (v: boolean) => void;
-  setError: (e: string | null) => void;
-  setFilterRange: (r: [number, number]) => void;
-  setSearchIndex: (v: string) => void;
+interface Store {
+  // Alice stages
+  aliceKey:    AliceKeyStage    | null;
+  aliceNtt:    AliceNttStage    | null;
+  aliceT:      AliceTStage      | null;
+  aliceEnc:    AliceEncStage    | null;
+  alicePubKey: AlicePubKeyStage | null;
+
+  // Bob stages
+  bobA:        BobAStage        | null;
+  bobUV:       BobUVStage       | null;
+  bobCompress: BobCompressStage | null;
+
+  // Alice decap
+  aliceSTU:    AliceSTUStage    | null;
+  aliceDecap:  AliceDecapStage  | null;
+  compare:     CompareStage     | null;
+
+  // busy flag
+  busy: boolean;
+
+  // setters
+  setAliceKey:    (v: AliceKeyStage)    => void;
+  setAliceNtt:    (v: AliceNttStage)    => void;
+  setAliceT:      (v: AliceTStage)      => void;
+  setAliceEnc:    (v: AliceEncStage)    => void;
+  setAlicePubKey: (v: AlicePubKeyStage) => void;
+  setBobA:        (v: BobAStage)        => void;
+  setBobUV:       (v: BobUVStage)       => void;
+  setBobCompress: (v: BobCompressStage) => void;
+  setAliceSTU:    (v: AliceSTUStage)    => void;
+  setAliceDecap:  (v: AliceDecapStage)  => void;
+  setCompare:     (v: CompareStage)     => void;
+  setBusy:        (v: boolean)          => void;
+  reset:          ()                    => void;
 }
 
-function buildRows(result: KeyGenResult): CoefficientRow[] {
-  return Array.from({ length: 256 }, (_, i) => ({
-    index: i,
-    s0: result.secretVector.s0[i],
-    s1: result.secretVector.s1[i],
-    a00: result.matrixA[0][0][i],
-    a01: result.matrixA[0][1][i],
-    a10: result.matrixA[1][0][i],
-    a11: result.matrixA[1][1][i],
-    nttA00: result.nttA[0][0][i],
-    nttA01: result.nttA[0][1][i],
-    nttA10: result.nttA[1][0][i],
-    nttA11: result.nttA[1][1][i],
-    nttS0: result.nttS[0][i],
-    nttS1: result.nttS[1][i],
-    nttProd0: result.nttProduct[0][i],
-    nttProd1: result.nttProduct[1][i],
-    as0: result.asIntermediate[0][i],
-    as1: result.asIntermediate[1][i],
-    t_poly0: result.rawT[0][i],
-    t_poly1: result.rawT[1][i],
-    enc0: result.encodedT1[0][i],
-    enc1: result.encodedT1[1][i],
-  }));
-}
+const init = {
+  aliceKey: null, aliceNtt: null, aliceT: null, aliceEnc: null, alicePubKey: null,
+  bobA: null, bobUV: null, bobCompress: null,
+  aliceSTU: null, aliceDecap: null, compare: null,
+  busy: false,
+};
 
-export const useKeyGenStore = create<KeyGenStore>((set) => ({
-  result: null,
-  rows: [],
-  encapResult: null,
-  encapRows: [],
-  isGenerating: false,
-  isEncapsulating: false,
-  error: null,
-  filterRange: [0, 3328],
-  searchIndex: '',
-  setResult: (result) => set({ result, rows: buildRows(result), error: null }),
-  setEncapResult: (enc) => set({ encapResult: enc, encapRows: buildEncapRows(enc) }),
-  setGenerating: (v) => set({ isGenerating: v }),
-  setEncapsulating: (v) => set({ isEncapsulating: v }),
-  setError: (e) => set({ error: e, isGenerating: false, isEncapsulating: false }),
-  setFilterRange: (r) => set({ filterRange: r }),
-  setSearchIndex: (v) => set({ searchIndex: v }),
+export const useStore = create<Store>((set) => ({
+  ...init,
+  setAliceKey:    (v) => set({ aliceKey:    v }),
+  setAliceNtt:    (v) => set({ aliceNtt:    v }),
+  setAliceT:      (v) => set({ aliceT:      v }),
+  setAliceEnc:    (v) => set({ aliceEnc:    v }),
+  setAlicePubKey: (v) => set({ alicePubKey: v }),
+  setBobA:        (v) => set({ bobA:        v }),
+  setBobUV:       (v) => set({ bobUV:       v }),
+  setBobCompress: (v) => set({ bobCompress: v }),
+  setAliceSTU:    (v) => set({ aliceSTU:    v }),
+  setAliceDecap:  (v) => set({ aliceDecap:  v }),
+  setCompare:     (v) => set({ compare:     v }),
+  setBusy:        (v) => set({ busy:        v }),
+  reset:          ()  => set({ ...init }),
 }));
