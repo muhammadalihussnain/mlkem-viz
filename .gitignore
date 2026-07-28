@@ -17,5 +17,5 @@ coverage/
 Thumbs.db
 
 # Editor
-.vscode/settings.json
+.vscode/
 *.swp
